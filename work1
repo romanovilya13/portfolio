@@ -1,0 +1,29 @@
+WITH SalesCTE AS (
+  SELECT 
+    p.CategoryID,
+    DATEFROMPARTS(YEAR(s.SaleDate), MONTH(s.SaleDate), 1) AS SaleMonth,
+    SUM(s.Quantity * p.Price) AS TotalSales
+  FROM 
+    Sales s
+  INNER JOIN 
+    Products p ON s.ProductID = p.ProductID
+  WHERE 
+    s.SaleDate >= DATEADD(year, -2, GETDATE())
+  GROUP BY 
+    p.CategoryID, 
+    DATEFROMPARTS(YEAR(s.SaleDate), MONTH(s.SaleDate), 1)
+)
+SELECT 
+  c.CategoryName,
+  s.SaleMonth,
+  s.TotalSales,
+  SUM(s.TotalSales) OVER (PARTITION BY c.CategoryName ORDER BY s.SaleMonth) AS RunningTotal,
+  LAG(s.TotalSales, 1, 0) OVER (PARTITION BY c.CategoryName ORDER BY s.SaleMonth) AS PrevMonthSales,
+  (s.TotalSales - LAG(s.TotalSales, 1, 0) OVER (PARTITION BY c.CategoryName ORDER BY s.SaleMonth)) / LAG(s.TotalSales, 1, 0) OVER (PARTITION BY c.CategoryName ORDER BY s.SaleMonth) * 100 AS GrowthRate
+FROM 
+  SalesCTE s
+INNER JOIN 
+  Categories c ON s.CategoryID = c.CategoryID
+ORDER BY 
+  c.CategoryName, 
+  s.SaleMonth;
